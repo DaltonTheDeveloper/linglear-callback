@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Linglear Login Redirect</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0d1117;
+      color: #c9d1d9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    #status {
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>🔐 Logging you in to Linglear...</h1>
+    <p id="status">Waiting for Cognito response...</p>
+  </div>
+
+  <script>
+    // Parse hash params like: #id_token=...&access_token=...&expires_in=3600&token_type=Bearer
+    function parseHashParams(hash) {
+      const params = {};
+      hash.substring(1).split("&").forEach(pair => {
+        const [key, value] = pair.split("=");
+        if (key && value) {
+          params[key] = decodeURIComponent(value);
+        }
+      });
+      return params;
+    }
+
+    const params = parseHashParams(window.location.hash);
+
+    if (params.id_token) {
+      document.getElementById("status").innerText = "✅ Login successful. Redirecting to extension...";
+      
+      // Send token to extension (change to your extension ID)
+      const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe";
+
+      // Use postMessage via hidden iframe to send token back to Chrome extension
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = `chrome-extension://${extensionId}/callback.html?id_token=${params.id_token}`;
+      document.body.appendChild(iframe);
+    } else {
+      document.getElementById("status").innerText = "❌ Login failed. No token received.";
+    }
+  </script>
+</body>
+</html>
