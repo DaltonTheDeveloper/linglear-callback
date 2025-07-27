@@ -27,34 +27,23 @@
   </div>
 
   <script>
-    // Parse hash params like: #id_token=...&access_token=...&expires_in=3600&token_type=Bearer
-    function parseHashParams(hash) {
-      const params = {};
-      hash.substring(1).split("&").forEach(pair => {
-        const [key, value] = pair.split("=");
-        if (key && value) {
-          params[key] = decodeURIComponent(value);
-        }
-      });
-      return params;
-    }
+    window.addEventListener('load', function () {
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.substring(1)); // #id_token=...
+      const idToken = params.get("id_token");
 
-    const params = parseHashParams(window.location.hash);
+      if (idToken) {
+        document.getElementById("status").innerText = "✅ Login successful. Redirecting to extension...";
 
-    if (params.id_token) {
-      document.getElementById("status").innerText = "✅ Login successful. Redirecting to extension...";
-      
-      // Send token to extension (change to your extension ID)
-      const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe";
-
-      // Use postMessage via hidden iframe to send token back to Chrome extension
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = `chrome-extension://${extensionId}/callback.html?id_token=${params.id_token}`;
-      document.body.appendChild(iframe);
-    } else {
-      document.getElementById("status").innerText = "❌ Login failed. No token received.";
-    }
+        const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe"; // Your real extension ID
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = `chrome-extension://${extensionId}/callback.html?id_token=${idToken}`;
+        document.body.appendChild(iframe);
+      } else {
+        document.getElementById("status").innerText = "❌ Login failed. No token received.";
+      }
+    });
   </script>
 </body>
 </html>
