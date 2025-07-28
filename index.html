@@ -16,9 +16,7 @@
       height: 100vh;
       text-align: center;
     }
-    #status {
-      font-size: 1.2em;
-    }
+    #status { font-size: 1.2em; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -28,53 +26,63 @@
   </div>
 
   <script>
+    function log(message) {
+      console.log(message);
+      document.getElementById("status").innerText += "\n" + message;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+    const state = params.get("state");
 
     if (!code) {
-      document.getElementById("status").innerText = "❌ No code found.";
-      throw new Error("No code");
+      log("❌ No authorization code found in URL.");
+      throw new Error("No code in URL");
     }
 
     const codeVerifier = sessionStorage.getItem("pkce_verifier");
     if (!codeVerifier) {
-      document.getElementById("status").innerText = "❌ Missing PKCE verifier.";
-      throw new Error("Missing verifier");
+      log("❌ No PKCE code_verifier found in sessionStorage.");
+      throw new Error("Missing PKCE verifier");
     }
 
     async function exchangeCodeForToken() {
+      log("🔄 Exchanging code for token...");
       const clientId = "7fbfdf71tao48nla0nt63oam7n";
       const redirectUri = "https://daltonthedeveloper.github.io/linglear-callback/";
       const tokenEndpoint = "https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com/oauth2/token";
 
-      const result = await fetch(tokenEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          client_id: clientId,
-          code: code,
-          redirect_uri: redirectUri,
-          code_verifier: codeVerifier
-        })
-      });
+      try {
+        const res = await fetch(tokenEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "authorization_code",
+            client_id: clientId,
+            code: code,
+            redirect_uri: redirectUri,
+            code_verifier: codeVerifier
+          })
+        });
 
-      const tokens = await result.json();
-      const idToken = tokens.id_token;
+        const json = await res.json();
+        console.log("🎁 Token response:", json);
 
-      if (idToken) {
-        document.getElementById("status").innerText = "✅ Token acquired. Redirecting to extension...";
+        if (json.id_token) {
+          log("✅ ID token received. Sending to extension...");
 
-        const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe";
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src = `chrome-extension://${extensionId}/callback.html#id_token=${idToken}`;
-        document.body.appendChild(iframe);
+          const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe";
+          const iframe = document.createElement("iframe");
+          iframe.style.display = "none";
+          iframe.src = `chrome-extension://${extensionId}/callback.html#id_token=${json.id_token}`;
+          document.body.appendChild(iframe);
 
-        history.replaceState({}, document.title, "/linglear-callback/"); // Remove code from URL
-      } else {
-        document.getElementById("status").innerText = "❌ Token exchange failed.";
-        console.error(tokens);
+          history.replaceState({}, document.title, "/linglear-callback/");
+        } else {
+          log("❌ Token exchange failed. Response:\n" + JSON.stringify(json, null, 2));
+        }
+      } catch (e) {
+        log("🔥 Error during token request:\n" + e.message);
       }
     }
 
