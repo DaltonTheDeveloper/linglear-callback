@@ -28,7 +28,7 @@ async function handleLoginClick() {
   sessionStorage.setItem("pkce_verifier", verifier);
 
   const domain = "us-east-13vk8oummo.auth.us-east-1.amazoncognito.com";
-  const clientId = "7fbfdf71tao48nla0nt63oam7n";
+  const clientId = "6aucsq3lg5okj8tse6hileusna";
   const redirectUri = "https://daltonthedeveloper.github.io/linglear-callback/";
   const scopes = "openid email";
 
