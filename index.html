@@ -16,7 +16,10 @@
       height: 100vh;
       text-align: center;
     }
-    #status { font-size: 1.2em; white-space: pre-wrap; }
+    #status {
+      font-size: 1.2em;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -33,24 +36,25 @@
 
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const state = params.get("state");
-
     if (!code) {
       log("❌ No authorization code found in URL.");
-      throw new Error("No code in URL");
+      throw new Error("Missing code");
     }
 
-    const codeVerifier = sessionStorage.getItem("pkce_verifier");
-    if (!codeVerifier) {
-      log("❌ No PKCE code_verifier found in sessionStorage.");
-      throw new Error("Missing PKCE verifier");
-    }
+    log("🔐 Auth code received. Requesting PKCE verifier from extension...");
 
-    async function exchangeCodeForToken() {
-      log("🔄 Exchanging code for token...");
+    chrome.runtime.sendMessage("agdbknoebcbbaegohkblhdcjcmlekdbe", { type: "get_pkce" }, async (response) => {
+      const codeVerifier = response?.verifier;
+      if (!codeVerifier) {
+        log("❌ No PKCE verifier found in extension.");
+        return;
+      }
+
+      log("🔄 Exchanging code for ID token...");
+
+      const tokenEndpoint = "https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com/oauth2/token";
       const clientId = "7fbfdf71tao48nla0nt63oam7n";
       const redirectUri = "https://daltonthedeveloper.github.io/linglear-callback/";
-      const tokenEndpoint = "https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com/oauth2/token";
 
       try {
         const res = await fetch(tokenEndpoint, {
@@ -66,27 +70,22 @@
         });
 
         const json = await res.json();
-        console.log("🎁 Token response:", json);
-
         if (json.id_token) {
-          log("✅ ID token received. Sending to extension...");
+          log("✅ Token retrieved. Sending to extension...");
 
-          const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe";
           const iframe = document.createElement("iframe");
           iframe.style.display = "none";
-          iframe.src = `chrome-extension://${extensionId}/callback.html#id_token=${json.id_token}`;
+          iframe.src = `chrome-extension://agdbknoebcbbaegohkblhdcjcmlekdbe/callback.html#id_token=${json.id_token}`;
           document.body.appendChild(iframe);
 
           history.replaceState({}, document.title, "/linglear-callback/");
         } else {
-          log("❌ Token exchange failed. Response:\n" + JSON.stringify(json, null, 2));
+          log("❌ Token exchange failed:\n" + JSON.stringify(json, null, 2));
         }
-      } catch (e) {
-        log("🔥 Error during token request:\n" + e.message);
+      } catch (err) {
+        log("🔥 Error during token request:\n" + err.message);
       }
-    }
-
-    exchangeCodeForToken();
+    });
   </script>
 </body>
 </html>
