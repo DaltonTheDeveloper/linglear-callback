@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Linglear Login Redirect</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://daltonthedeveloper.github.io; connect-src https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com;">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://daltonthedeveloper.github.io;
+    connect-src https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com;">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -16,10 +19,7 @@
       height: 100vh;
       text-align: center;
     }
-    #status {
-      font-size: 1.2em;
-      white-space: pre-wrap;
-    }
+    #status { font-size: 1.2em; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -28,6 +28,7 @@
     <p id="status">Waiting for Cognito response...</p>
   </div>
 
+  <script src="./pkce.js"></script>
   <script>
     function log(message) {
       console.log(message);
@@ -36,25 +37,23 @@
 
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+
     if (!code) {
       log("❌ No authorization code found in URL.");
-      throw new Error("Missing code");
+      throw new Error("No code in URL");
     }
 
-    log("🔐 Auth code received. Requesting PKCE verifier from extension...");
+    const codeVerifier = sessionStorage.getItem("pkce_verifier");
+    if (!codeVerifier) {
+      log("❌ No PKCE code_verifier found in sessionStorage.");
+      throw new Error("Missing PKCE verifier");
+    }
 
-    chrome.runtime.sendMessage("agdbknoebcbbaegohkblhdcjcmlekdbe", { type: "get_pkce" }, async (response) => {
-      const codeVerifier = response?.verifier;
-      if (!codeVerifier) {
-        log("❌ No PKCE verifier found in extension.");
-        return;
-      }
-
-      log("🔄 Exchanging code for ID token...");
-
-      const tokenEndpoint = "https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com/oauth2/token";
+    async function exchangeCodeForToken() {
+      log("🔄 Exchanging code for token...");
       const clientId = "7fbfdf71tao48nla0nt63oam7n";
       const redirectUri = "https://daltonthedeveloper.github.io/linglear-callback/";
+      const tokenEndpoint = "https://us-east-13vk8oummo.auth.us-east-1.amazoncognito.com/oauth2/token";
 
       try {
         const res = await fetch(tokenEndpoint, {
@@ -70,22 +69,27 @@
         });
 
         const json = await res.json();
-        if (json.id_token) {
-          log("✅ Token retrieved. Sending to extension...");
+        console.log("🎁 Token response:", json);
 
+        if (json.id_token) {
+          log("✅ ID token received. Sending to extension...");
+
+          const extensionId = "agdbknoebcbbaegohkblhdcjcmlekdbe";
           const iframe = document.createElement("iframe");
           iframe.style.display = "none";
-          iframe.src = `chrome-extension://agdbknoebcbbaegohkblhdcjcmlekdbe/callback.html#id_token=${json.id_token}`;
+          iframe.src = `chrome-extension://${extensionId}/callback.html#id_token=${json.id_token}`;
           document.body.appendChild(iframe);
 
           history.replaceState({}, document.title, "/linglear-callback/");
         } else {
           log("❌ Token exchange failed:\n" + JSON.stringify(json, null, 2));
         }
-      } catch (err) {
-        log("🔥 Error during token request:\n" + err.message);
+      } catch (e) {
+        log("🔥 Error during token request:\n" + e.message);
       }
-    });
+    }
+
+    exchangeCodeForToken();
   </script>
 </body>
 </html>
